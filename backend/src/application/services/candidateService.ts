@@ -3,6 +3,9 @@ import { validateCandidateData } from '../validator';
 import { Education } from '../../domain/models/Education';
 import { WorkExperience } from '../../domain/models/WorkExperience';
 import { Resume } from '../../domain/models/Resume';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const addCandidate = async (candidateData: any) => {
     try {
@@ -62,4 +65,43 @@ export const findCandidateById = async (id: number): Promise<Candidate | null> =
         console.error('Error al buscar el candidato:', error);
         throw new Error('Error al recuperar el candidato');
     }
+};
+
+export const updateCandidateStageService = async (
+  candidateId: number,
+  applicationId: number,
+  interviewStepId: number
+) => {
+  // Verificar que la aplicación existe y pertenece al candidato
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) {
+    return { success: false, message: 'Application not found', status: 404 };
+  }
+
+  if (application.candidateId !== candidateId) {
+    return { success: false, message: 'Application does not belong to candidate', status: 403 };
+  }
+
+  // Verificar que la etapa de entrevista existe
+  const interviewStep = await prisma.interviewStep.findUnique({
+    where: { id: interviewStepId },
+  });
+
+  if (!interviewStep) {
+    return { success: false, message: 'Interview step not found', status: 404 };
+  }
+
+  // Actualizar la etapa actual de la aplicación
+  const updatedApplication = await prisma.application.update({
+    where: { id: applicationId },
+    data: { currentInterviewStep: interviewStepId },
+  });
+
+  return {
+    success: true,
+    application: updatedApplication,
+  };
 };
